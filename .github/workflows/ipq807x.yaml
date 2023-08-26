@@ -1,10 +1,10 @@
-name: Build IPQ807x NSS
+name: Build IPQ60xx NSS
 
 on: workflow_dispatch
 
 jobs:
     build:
-        name: Prepare and build IPQ807x NSS generic images
+        name: Prepare and build IPQ60xx NSS generic images
         runs-on: self-hosted
 
         steps:
@@ -16,7 +16,7 @@ jobs:
                 ./scripts/feeds update -a
                 ./scripts/feeds install -a
 
-            - name: Import full config for IPQ807x NSS Generic
+            - name: Import full config for IPQ60xx NSS Generic
               run: |
                 mv .full_config .config
 
@@ -52,13 +52,13 @@ jobs:
                 make V=s
 
             - name: TAR output
-              run: tar -cvf ipq807xx-images.tar bin/targets/qualcommax/ipq807x
+              run: tar -cvf ipq60xx-images.tar bin/targets/qualcommax/ipq60xx
 
             - name: Upload artifacts
               uses: actions/upload-artifact@v3
               with:
-                name: ipq807x-images
-                path: ipq807xx-images.tar
+                name: ipq60xx-images
+                path: ipq60xx-images.tar
 
     release:
           name: Make a release
@@ -69,10 +69,10 @@ jobs:
             - name: Download the image artifacts
               uses: actions/download-artifact@v3
               with:
-                name: ipq807x-images
+                name: ipq60xx-images
 
             - name: Extract the image artifacts
-              run: tar xf ipq807xx-images.tar
+              run: tar xf ipq60xx-images.tar
 
             - name: Get the current date
               run: echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
@@ -82,8 +82,8 @@ jobs:
               with:
                 name: "Updated prebuilt images ${{ env.NOW }}"
                 commit: "main"
-                tag: "ipq807x-${{ env.NOW }}"
+                tag: "ipq60xx-${{ env.NOW }}"
                 generateReleaseNotes: true
                 makeLatest: true
-                artifacts: bin/targets/qualcommax/ipq807x/*
+                artifacts: bin/targets/qualcommax/ipq60xx/*
                 token: "${{ secrets.GITHUB_TOKEN }}"
