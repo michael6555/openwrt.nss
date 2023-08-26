@@ -1,0 +1,89 @@
+name: Build IPQ60xx NSS
+
+on: workflow_dispatch
+
+jobs:
+    build:
+        name: Prepare and build IPQ60xx NSS generic images
+        runs-on: self-hosted
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Update and install feeds
+              run: |
+                ./scripts/feeds update -a
+                ./scripts/feeds install -a
+
+            - name: Import full config for IPQ60xx NSS Generic
+              run: |
+                mv .full_config .config
+
+            - name: QoL fixes on default config
+              run: |
+                mkdir -p files/etc/uci-defaults
+                cat > files/etc/uci-defaults/xxx_config << EOF
+                uci set wireless.radio0.country='US'
+                uci set wireless.radio1.country='US'
+                uci set wireless.radio2.country='US'
+                uci set wireless.radio1.disabled=0
+                uci set wireless.radio2.disabled=0
+                uci set network.globals.packet_steering=1
+                uci commit
+                EOF
+
+            - name: Download package sources
+              run: make download V=s
+
+            - name: Build tools
+              run: |
+                make tools/install -j$(nproc) V=s || \
+                make tools/install V=s
+
+            - name: Build toolchain
+              run: |
+                make toolchain/install -j$(nproc) V=s || \
+                make toolchain/install V=s
+
+            - name: Build target images
+              run: |
+                make -j$(nproc) V=s || \
+                make V=s
+
+            - name: TAR output
+              run: tar -cvf ipq60xx-images.tar bin/targets/qualcommax/ipq60xx
+
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                name: ipq60xx-images
+                path: ipq60xx-images.tar
+
+    release:
+          name: Make a release
+          runs-on: self-hosted
+          needs: build
+
+          steps:
+            - name: Download the image artifacts
+              uses: actions/download-artifact@v3
+              with:
+                name: ipq60xx-images
+
+            - name: Extract the image artifacts
+              run: tar xf ipq60xx-images.tar
+
+            - name: Get the current date
+              run: echo "NOW=$(date +%F-%H%M)" >> $GITHUB_ENV
+
+            - name: Create a release
+              uses: "ncipollo/release-action@v1"
+              with:
+                name: "Updated prebuilt images ${{ env.NOW }}"
+                commit: "main"
+                tag: "ipq60xx-${{ env.NOW }}"
+                generateReleaseNotes: true
+                makeLatest: true
+                artifacts: bin/targets/qualcommax/ipq60xx/*
+                token: "${{ secrets.GITHUB_TOKEN }}"
